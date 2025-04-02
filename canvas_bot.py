@@ -1,11 +1,15 @@
 from playwright.sync_api import sync_playwright
 import os
 from dotenv import load_dotenv
+import main 
 
 load_dotenv()
 
 USERNAME = os.environ['SJSU_ID']
 PASSWORD = os.environ['SJSU_PASSWORD']
+
+
+
 
 def run_quiz_bot(day: str = '2025-04-04'):
     with sync_playwright() as p:
@@ -22,8 +26,9 @@ def run_quiz_bot(day: str = '2025-04-04'):
         page.click('#global_nav_calendar_link', timeout=10000)
         page.wait_for_timeout(5000)
         page.screenshot(path='screenshots/calendar.png')
-
-        # --- Step 1: Identify the day column using the header cell ---
+        
+        # --- Step 1: Get all assignment events for the target day ---
+        # We'll assume events are filtered by horizontal position using the day header.
         day_header_selector = f'td.fc-day-top[data-date="{day}"]'
         day_header = page.query_selector(day_header_selector)
         if not day_header:
@@ -41,7 +46,6 @@ def run_quiz_bot(day: str = '2025-04-04'):
         day_right = day_left + day_box['width']
         print(f"Day cell for {day} is at x: {day_left} with width: {day_box['width']}")
 
-        # --- Step 2: Get all assignment events and filter by horizontal position ---
         page.wait_for_selector('a.fc-day-grid-event.assignment', timeout=10000)
         all_events = page.query_selector_all('a.fc-day-grid-event.assignment')
         matched_events = []
@@ -50,7 +54,6 @@ def run_quiz_bot(day: str = '2025-04-04'):
             box = event.bounding_box()
             if not box:
                 continue
-            # Compute the center x coordinate of the event element.
             event_center_x = box['x'] + box['width'] / 2
             if day_left - 5 <= event_center_x <= day_right + 5:
                 matched_events.append(event)
@@ -60,7 +63,7 @@ def run_quiz_bot(day: str = '2025-04-04'):
             browser.close()
             return
 
-        # --- Step 3: Extract a unique identifier (the title) for each matched event ---
+        # Extract unique titles from matched events
         event_titles = []
         for event in matched_events:
             title = event.get_attribute("title")
@@ -70,34 +73,54 @@ def run_quiz_bot(day: str = '2025-04-04'):
         for idx, title in enumerate(event_titles):
             print(f"{idx+1}. {title}")
 
+        # --- Step 2: Iterate over each event and extract its instructions ---
         for idx, title in enumerate(event_titles):
             event_selector = f'a.fc-day-grid-event.assignment[title="{title}"]'
             event = page.query_selector(event_selector)
             if event:
-                print(f"Opening assignment preview {idx+1}: {title}")
-                event.click()  # First click opens preview
-                page.wait_for_timeout(1000)
+                print(f"Opening assignment preview for: {title}")
+                event.click()  # Click to open preview popup
+                page.wait_for_timeout(1000)  # Wait for preview to load
 
-                # Wait for the preview popup to appear
-                page.wait_for_selector('#popover-0', timeout=5000)
-
-                # Find the link inside the preview that fully opens the assignment
-                # Usually an <a> inside the preview
-                full_view_link = page.query_selector('#popover-0 a')
-                if full_view_link:
-                    print("➡ Clicking full view link in preview")
-                    full_view_link.click()
+                # Wait for the preview popup and then click the "view event" link
+                page.wait_for_selector('div.event-details a.view_event_link', timeout=5000)
+                view_link = page.query_selector('div.event-details a.view_event_link')
+                if view_link:
+                    print("Clicking the 'view event' link to open full assignment.")
+                    view_link.click()  # Redirects to the full assignment page
                     page.wait_for_timeout(3000)
-                    page.screenshot(path=f'screenshots/assignment_{idx+1}.png')
-                    page.go_back()
-                    page.wait_for_timeout(2000)
                 else:
-                    print("⚠️ Could not find full-view link inside preview popup.")
-                    page.keyboard.press("Escape")  # Close popup as fallback
+                    print("Could not find the full-view link. Pressing Escape as fallback.")
+                    page.keyboard.press("Escape")
                     page.wait_for_timeout(1000)
+                    continue
+
+                # --- Step 3: Extract assignment instructions from the full page ---
+                # The instructions are in a div with classes "description user_content enhanced"
+                page.wait_for_selector('div.description.user_content.enhanced', timeout=5000)
+                instructions_element = page.query_selector('div.description.user_content.enhanced')
+                if instructions_element:
+                    instructions = instructions_element.inner_text()
+                    print(f"\n📝 Assignment {idx+1} Instructions:\n{instructions}\n")
+                    
+                    # Optionally, send `instructions` to your LangChain agent here.
+                    # For example:
+                    # from langchain.chat_models import ChatOpenAI
+                    # from langchain.schema import HumanMessage
+                    # llm = ChatOpenAI(model_name="gpt-4", temperature=0)
+                    # response = llm([HumanMessage(content=instructions)])
+                    # print("🤖 Agent Response:\n", response.content)
+                    main.agent_task(instructions)
+                else:
+                    print("Could not locate assignment instructions.")
+
+                page.screenshot(path=f'screenshots/assignment_{idx+1}.png')
+                page.go_back()  # Return to calendar
+                page.wait_for_timeout(2000)
             else:
-                print(f"❌ Could not find event: {title}")
-            browser.close()
+                print(f"Could not find event with title: {title}")
+
+        browser.close()
 
 # Run the bot for a specific day (ISO format: YYYY-MM-DD)
 run_quiz_bot('2025-04-04')

@@ -7,12 +7,15 @@ load_dotenv()
 
 llm = ChatOpenAI(model='gpt-4-o')
 
-def get_best_answer(question, options):
-    prompt = f"""Answer the following multiple-choice question. 
-    Question: {question}
-    Options: {', '.join(options)}
+openai_api_key = os.getenv("OPENAI_API_KEY")
 
-    Only return the exact option you think is correct."""
 
-    response = llm([HumanMessage(content=prompt)])
-    return response.content.strip()
+
+def agent_task(prompt: str):
+    modified_prompt = f"Do this Task to the best of your abilities.Here are the instructions:Instructions: {prompt}Do this task in a human manner, and don't sound AI"
+    
+    llm = ChatOpenAI(model_name='gpt-4', temperature=0)
+    message = HumanMessage(content=modified_prompt)
+    response = llm([message])
+    
+    return response.content
