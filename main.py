@@ -22,7 +22,7 @@ def load_pdf_for_langchain(pdf_path: str):
     docs = text_splitter.split_documents(pages)
     return docs
 
-def agent_task(instructions: str, pdf_path = None):
+def agent_task(instructions: str, pdf_path = None, answers = None, feedback=None):
     
     # Load and split PDF content
     if pdf_path:
@@ -34,6 +34,9 @@ def agent_task(instructions: str, pdf_path = None):
         f"Here is the PDF content:\n{context}\n\n"
         f"Follow the instructions above using the context from the PDF. Be detailed and human."
         f"AI detectors shouldn't be able to detect you!"
+        f"If feedback is not None, then you need to take the existing work and change it to match the feedback"
+        f"Here is the feedback {feedback}"
+        f"Here is the current answer {answers}, and you need to take the feedback and modify this answer"
         )
     else:
         full_prompt = (
