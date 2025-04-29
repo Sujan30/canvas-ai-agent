@@ -6,6 +6,7 @@ import os
 import asyncio
 from langchain_google_genai import ChatGoogleGenerativeAI
 from browser_use import Agent
+import re
 
 load_dotenv()
 
@@ -24,9 +25,16 @@ async def load_up_scribbr(text: str):
         task=f"You will go to the https://quillbot.scribbr.com/ai-content-detector?independentTool=true&language=en&partnerCompany=scribbr&enableUpsell=true&fullScreen=true&cookieConsent=true&hideCautionBox=true and check if the {text} is AI-generated. You will then output the result, which should be what % of the text is AI-generated.",
         llm=llm,
     )
-    await agent.run()
+    result = await agent.run()
+    # Extract the percentage number from the result string
+    percentage = re.search(r'(\d+)%', result)
+    if percentage:
+        return int(percentage.group(1))
+    return 0
 
-asyncio.run(load_up_scribbr(text))
+# Get the similarity score
+similarity_score = asyncio.run(load_up_scribbr(text))
+print(f"AI Similarity Score: {similarity_score}%")
 
 
 
