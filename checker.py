@@ -5,7 +5,7 @@ from dotenv import load_dotenv
 import os
 import asyncio
 from langchain_google_genai import ChatGoogleGenerativeAI
-from browser_use import Agent
+from browser_use import Agent, AgentHistoryList
 import re
 
 load_dotenv()
@@ -20,21 +20,36 @@ llm = ChatGoogleGenerativeAI(model="gemini-2.0-flash", api_key=os.getenv('GEMINI
 
 load_dotenv()
 
-async def load_up_scribbr(text: str):
-    agent = Agent(
-        task=f"You will go to the https://quillbot.scribbr.com/ai-content-detector?independentTool=true&language=en&partnerCompany=scribbr&enableUpsell=true&fullScreen=true&cookieConsent=true&hideCautionBox=true and check if the {text} is AI-generated. You will then output the result, which should be what % of the text is AI-generated.",
-        llm=llm,
+async def load_up_scribbr(text: str) -> float:
+    # 1. Prompt it to return *only* the percentage number
+    prompt = (
+        "Go to the Scribbr AI Content Detector ("
+        "https://quillbot.scribbr.com/ai-content-detector?...). "
+        f"Paste exactly this text:\n\n'''{text}'''\n\n"
+        "Run the check, then respond with ONLY the percentage of AI-generated content "
+        "as a number (e.g. 32.5). No extra words."
     )
-    result = await agent.run()
-    # Extract the percentage number from the result string
-    percentage = re.search(r'(\d+)%', result)
-    if percentage:
-        return int(percentage.group(1))
-    return 0
 
-# Get the similarity score
-similarity_score = asyncio.run(load_up_scribbr(text))
-print(f"AI Similarity Score: {similarity_score}%")
+    
+
+    agent = Agent(task=prompt, llm=llm)
+    history = AgentHistoryList()
+    raw = await agent.run(history)
+
+    final_step = raw[-1]
+    done_action = final_step.action_names()
+    score = done_action['done']['text']
+    return float(score)
+
+# Example usage
+
+
+
+
+
+
+
+
 
 
 
@@ -57,6 +72,19 @@ def humanize_text(text: str) -> str:
     return message.content
 
 
+
+
+async def work_flow(text: str):
+    similarity_score = await load_up_scribbr(text)
+    while(similarity_score > 50):
+        text = humanize_text(text)
+        similarity_score = await load_up_scribbr(text)
+    return text    
+
+
+if __name__ == "__main__":
+    result = asyncio.run(load_up_scribbr(text))
+    print(result)
 
 
 
