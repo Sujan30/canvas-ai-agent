@@ -65,15 +65,14 @@ def humanize_text(text: str) -> str:
 
 async def work_flow(text: str):
     similarity_score = await load_up_scribbr(text)
-    while(similarity_score > 50):
+    while(similarity_score > 25):
         text = humanize_text(text)
         similarity_score = await load_up_scribbr(text)
     return text    
 
 
 if __name__ == "__main__":
-    result = asyncio.run(load_up_scribbr(text))
+    result = asyncio.run(work_flow(text))
     print(f"AI Similarity Score: {result}%")
-
 
 
