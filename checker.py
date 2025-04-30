@@ -30,28 +30,17 @@ async def load_up_scribbr(text: str) -> float:
         "as a number (e.g. 32.5). No extra words."
     )
 
-    
-
     agent = Agent(task=prompt, llm=llm)
-    history = AgentHistoryList()
-    raw = await agent.run(history)
+    raw = await agent.run()
+    result = raw.final_result()
+	
+    if result:
+        return result
+    else:
+        print('No result')
 
-    final_step = raw[-1]
-    done_action = final_step.action_names()
-    score = done_action['done']['text']
-    return float(score)
 
 # Example usage
-
-
-
-
-
-
-
-
-
-
 
 
 def humanize_text(text: str) -> str:
@@ -84,7 +73,7 @@ async def work_flow(text: str):
 
 if __name__ == "__main__":
     result = asyncio.run(load_up_scribbr(text))
-    print(result)
+    print(f"AI Similarity Score: {result}%")
 
 
 
