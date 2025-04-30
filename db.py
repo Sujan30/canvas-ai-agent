@@ -24,6 +24,7 @@ def store_assignment(title, instructions, answer, feedback):
             "answer": answer,
             "feedback": feedback
         }
+        print(f'trying to store assignment {data}')
         response = supabase.table("assignments").insert(data).execute()
         print("✅ Data stored:", response)
     except Exception as e:
@@ -31,7 +32,3 @@ def store_assignment(title, instructions, answer, feedback):
         raise
 
 # Test the function
-try:
-    store_assignment("test", "test", "test", "test")
-except Exception as e:
-    print("❌ Test failed:", str(e))

@@ -7,6 +7,7 @@ from dotenv import load_dotenv
 import pdfplumber
 import main  # Assuming your agent_task function lives here
 import checking_bot as nerd 
+import db
 
 load_dotenv()
 
@@ -38,9 +39,9 @@ def download_pdf_from_assignment(page):
 
 #this is where we store the answers to the assignments, before second agent reviews it
 
-def create_txt_file(txt: str):
+def create_txt_file(title: str, txt: str):
     os.makedirs('answers', exist_ok=True)
-    file_path = os.path.join('answers', 'answers.txt')
+    file_path = os.path.join('answers', f'{title}.txt')
     with open(file_path, 'w') as file:
         file.write(txt)
     print(f"Answers saved to {file_path}")
@@ -76,9 +77,11 @@ def screenshot_pdf_view(browser, pdf_url: str, screenshot_path: str):
         pdf_page.close()
 
         
-def check_work(instructions : str, answers, pdf=None):
+def check_work(title: str, instructions : str, answers, pdf=None):
     grade = nerd.check_work(instructions, answers, pdf)
     if grade['passed']:
+        #then store the assignment in the database
+        db.store_assignment(title, instructions, answers, grade['feedback'])
         return True
     else:
         return grade['feedback']
@@ -158,6 +161,7 @@ def process_assignment(page, browser, idx, title):
         return
 
     instructions = instructions_element.inner_text()
+    
     print(f"\n📝 Assignment {idx+1} Instructions:\n{instructions}\n")
     download_link = instructions_element.query_selector("a[href*='download?download_frd=1']")
     if download_link:
@@ -177,10 +181,9 @@ def process_assignment(page, browser, idx, title):
         print("⚠️ No downloadable PDF link found. Using only instructions.")
         full_prompt = instructions
     answers = main.agent_task(full_prompt)
-    valid = check_work(instructions_element, answers, pdf_text)
+    valid = check_work(title, instructions, answers, pdf_text)
     if valid:
-        create_txt_file(answers)
-    
+        create_txt_file(title, answers)
 
 
 def download_pdf_from_assignment(page):
